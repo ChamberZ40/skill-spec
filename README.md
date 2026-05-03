@@ -6,9 +6,10 @@
 
 A methodology + toolchain for engineering Claude Code skills with rigor. Instead of writing skills once and forgetting them, `skill-spec` gives you:
 
-- **Auto-detection** — Hooks that silently count tool calls and surface skill candidates at session end
-- **Change management** — Numbered proposals (`CHANGE.md`) with status tracking and human review gates
-- **Composition** — A framework for chaining skills into workflows
+- **Auto-detection** — Hooks that silently track tool calls + tool diversity, surfacing skill candidates at session end
+- **Scaffold** — Template-based skill creation from candidates
+- **Tiered change management** — Patch (direct edit) vs Proposal (CHANGE.md with review gates)
+- **Composition** — Chain skills into workflows via a dependency registry
 
 ## The Problem
 
@@ -22,36 +23,41 @@ Skills solve this — but:
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Session Running                        │
-│                                                          │
-│  PostToolUse hook (async)                                │
-│  └─ Increments counter in /tmp (0 tokens, pure shell)   │
-│                                                          │
-│  Stop hook                                               │
-│  └─ If counter >= threshold:                             │
-│       inject 1-sentence suggestion (~30 tokens)          │
-│     Else:                                                │
-│       silent exit (0 tokens)                             │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Session Running                            │
+│                                                              │
+│  PostToolUse hook (async, 0 tokens)                          │
+│  └─ Increments counter + logs tool_name to /tmp              │
+│                                                              │
+│  Stop hook                                                   │
+│  └─ If counter >= threshold:                                 │
+│       • Write candidate to data/candidates.md (pure shell)   │
+│       • Inject 1-sentence prompt (~30 tokens)                │
+│     Else:                                                    │
+│       silent exit (0 tokens)                                 │
+└─────────────────────────────────────────────────────────────┘
          │
-         ▼ skill candidate identified
-┌─────────────────────────────────────────────────────────┐
-│  Phase 1: Create SKILL.md                                │
-│  Phase 2: Iterate via CHANGE.md proposals                │
-│  Phase 3: Chain with downstream skills                   │
-└─────────────────────────────────────────────────────────┘
+         ▼ candidates accumulate
+┌─────────────────────────────────────────────────────────────┐
+│  /skill-spec review                                          │
+│  └─ Claude reads candidates.md                               │
+│  └─ Evaluates: multi-step? repeatable?                       │
+│  └─ YES → scaffold from template                            │
+│  └─ NO  → mark skipped                                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Installation
 
-### 1. Copy skill to your Claude Code skills directory
+### 1. Clone to your Claude Code skills directory
 
 ```bash
-git clone git@github.com:ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
+git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
 ```
 
 ### 2. Add hooks to `~/.claude/settings.json`
+
+Merge these into your existing settings (don't replace the whole file):
 
 ```json
 {
@@ -85,9 +91,17 @@ git clone git@github.com:ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
 }
 ```
 
-### 3. (Optional) Adjust threshold
+### 3. Verify installation
 
-Default is 15 tool calls. Override via env:
+```bash
+# Test the hooks work
+echo '{"session_id": "test", "tool_name": "Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
+# Should output: {"suppressOutput": true}
+```
+
+### 4. (Optional) Adjust threshold
+
+Default is 15 tool calls. Override via env in settings.json:
 
 ```json
 {
@@ -106,55 +120,93 @@ Default is 15 tool calls. Override via env:
 
 The PostToolUse hook is `async: true` and outputs `{"suppressOutput": true}` — it never touches your context window.
 
-## The Three Phases
+## The Four Phases
 
-### Phase 1: Identification
+### Phase 1: Detection
 
-A skill candidate must satisfy ALL of:
-- >= 3 rounds of conversation
-- >= 3 distinct steps
-- Will recur in the future
+Hooks track two signals per session (zero token cost):
+- **Total tool calls** — raw complexity indicator
+- **Unique tool types** — diversity indicator (Bash+Edit+Write+Agent = more complex than 20x Read)
 
-The hook automates the first signal. You decide the rest.
-
-### Phase 2: Change Management
-
-Don't edit `SKILL.md` directly. Create proposals in `CHANGE.md`:
-
+When threshold exceeded, a candidate is logged to `data/candidates.md`:
 ```markdown
-## #001 - Add retry logic for API failures
-- **Status:** proposed
-- **Date:** 2026-04-30
-- **Trigger:** Skill failed silently when API returned 429
-- **Proposal:** Add exponential backoff step between API calls
-- **Impact:** Adds ~10s to execution, prevents silent failures
+## 2026-05-03 | 23 calls | 6 tool types
+- **Session:** abc123
+- **Tools:** Bash,Edit,Write,Agent,WebFetch,Read
+- **Status:** pending
 ```
 
-Status flow: `proposed` → `accepted` → `implemented` (or `rejected` with reason)
+### Phase 2: Scaffold
 
-### Phase 3: Composition
+When you review candidates and confirm one is worth keeping:
+- Claude uses `templates/SKILL.template.md` to generate a new skill directory
+- Pre-fills steps based on what was observed in the session
 
-After a skill runs, ask:
-- Does its output feed another skill? → Link them
-- Is there always a next step? → Add `## Next Steps`
-- Do multiple skills always run together? → Create an orchestration skill
+### Phase 3: Change Management (Tiered)
+
+| Level | When | Process |
+|-------|------|---------|
+| **Patch** | Won't surprise users (typo, wording, edge case) | Direct edit + git commit |
+| **Proposal** | Changes behavior (add/remove steps, reorder) | CHANGE.md entry → user review |
+
+**Rule of thumb:** If someone using this skill would say "huh?" — it needs a proposal.
+
+### Phase 4: Composition
+
+Register skill dependencies in `data/chains.md`:
+
+```
+[publisher-matcher] --{matched list}--> [publisher-review]
+[publisher-review] --{confirmed list}--> [email-generator]
+[email-generator] --{email content}--> [mail-send-batch]
+```
+
+Each skill's `## Next Steps` section tells Claude what to suggest after execution.
 
 ## File Structure
 
 ```
 ~/.claude/skills/skill-spec/
-├── SKILL.md                        # The methodology (loaded by Claude Code)
-└── scripts/
-    ├── count-tool-use.sh           # PostToolUse hook — async counter
-    └── check-skill-candidate.sh    # Stop hook — threshold check
+├── SKILL.md                        # Methodology (loaded into Claude context)
+├── scripts/
+│   ├── count-tool-use.sh           # PostToolUse — async counter + tool log
+│   └── check-skill-candidate.sh    # Stop — threshold check + candidate writer
+├── data/
+│   ├── candidates.md               # Auto-populated candidate log
+│   └── chains.md                   # Skill dependency registry
+└── templates/
+    └── SKILL.template.md           # Scaffold for new skills
 ```
+
+## Usage
+
+### Passive mode (default)
+Just use Claude Code normally. Hooks run silently. Candidates accumulate.
+
+### Review mode
+```
+You: /skill-spec
+Claude: [reads candidates.md, evaluates each pending entry]
+```
+
+### Register a chain
+```
+You: Register the email pipeline chain in skill-spec
+Claude: [updates data/chains.md with the dependency graph]
+```
+
+## Prerequisites
+
+- Claude Code CLI
+- `jq` installed (for JSON parsing in hooks)
+- Bash-compatible shell
 
 ## Philosophy
 
 Skills are specs. Specs need:
-- **Versioning** — CHANGE.md with numbered proposals
-- **Review gates** — Human approval before changes land
 - **Observability** — Hooks that surface when a new spec is needed
+- **Scaffolding** — Templates that reduce friction to create
+- **Tiered governance** — Light touch for small changes, review gates for big ones
 - **Composability** — Skills that chain into workflows
 
 Write once, iterate forever.
