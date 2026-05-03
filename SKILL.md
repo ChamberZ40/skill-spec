@@ -1,130 +1,106 @@
 ---
 name: skill-spec
-description: Use when identifying skill candidates from repeated work, managing skill change proposals, or chaining skills into workflows. Triggers on multi-step tasks that took many conversations, skill modification needs, or post-execution workflow composition.
+description: Use when identifying skill candidates from repeated work, managing skill change proposals, reviewing candidates, or chaining skills into workflows. Also invoke directly to scaffold a new skill or review accumulated candidates.
 ---
 
-# Skill Lifecycle Engineering
+# Skill Spec Engineering
 
 ## Overview
 
-Skill 不是写完就结束的静态文档，而是需要持续迭代的 spec 工程。本方法论覆盖 skill 的完整生命周期：识别候选 → 变更管理 → 下游串联。
+Skill 是需要持续迭代的 spec 工程。本方法论覆盖完整生命周期：自动检测 → 候选记录 → 脚手架创建 → 变更管理 → 下游串联。
 
-## Phase 1: Identification — 何时创建 Skill
+## Phase 1: Detection — 自动候选识别
 
-**核心信号：** 如果一件事需要很多动作、聊了很多次才完成，它就是 skill 的候选。
+### Hook 驱动（0 token）
 
-```dot
-digraph identify {
-    "完成了一项工作" [shape=doublecircle];
-    "花了多少轮对话?" [shape=diamond];
-    "涉及多少步骤?" [shape=diamond];
-    "下次还会做吗?" [shape=diamond];
-    "创建 Skill" [shape=box];
-    "不需要 Skill" [shape=box];
+- **PostToolUse**（async）— 递增计数器 + 记录工具名称，纯 shell
+- **Stop** — 超阈值时写入 `data/candidates.md`，注入一句提示（~30 token）
 
-    "完成了一项工作" -> "花了多少轮对话?";
-    "花了多少轮对话?" -> "涉及多少步骤?" [label=">=3轮"];
-    "花了多少轮对话?" -> "不需要 Skill" [label="1-2轮"];
-    "涉及多少步骤?" -> "下次还会做吗?" [label=">=3步"];
-    "涉及多少步骤?" -> "不需要 Skill" [label="1-2步"];
-    "下次还会做吗?" -> "创建 Skill" [label="是"];
-    "下次还会做吗?" -> "不需要 Skill" [label="否"];
-}
+阈值默认 15，环境变量覆盖：`SKILL_CANDIDATE_THRESHOLD=20`
+
+### 候选记录格式
+
+自动写入 `data/candidates.md`：
+```markdown
+## 2026-05-03 | 23 calls | 6 tool types
+- **Session:** abc123
+- **Tools:** Bash,Edit,Write,Agent,WebFetch,Read
+- **Status:** pending
 ```
 
-**识别检查清单：**
-- 多轮对话（>=3轮）才完成
-- 涉及多个工具或步骤（>=3步）
-- 未来会重复执行
-- 过程中有非显而易见的判断或决策
+### Review 模式
 
-### 自动检测（Hook 驱动）
+用户主动调用时，读取 candidates.md，对每个 pending 条目：
+1. 回溯 session 内容生成关键步骤摘要
+2. 评估是否满足三条件（多步、多轮、可重复）
+3. 满足 → 用模板脚手架创建 skill；不满足 → 标记 skipped
 
-已配置 hooks 自动监测 session 复杂度：
+## Phase 2: Scaffold — 脚手架创建
 
-- **PostToolUse hook**（async, 0 token）— 每次工具调用递增计数器，纯 shell 无 Claude 参与
-- **Stop hook** — session 结束时检查计数器，仅当 >=15 次工具调用时才注入 1 句提示
+满足条件的候选，使用 `templates/SKILL.template.md` 生成：
 
-阈值可通过环境变量调整：`SKILL_CANDIDATE_THRESHOLD=20`
+```bash
+~/.claude/skills/[new-skill-name]/
+├── SKILL.md        # 从模板生成，预填步骤
+└── CHANGE.md       # 空，准备接收提案
+```
 
-**Token 开销：** 低于阈值的 session = 0 额外 token。超过阈值 = ~30 token 的提示注入。
+## Phase 3: Change Management — 分级变更
 
-## Phase 2: Change Management — CHANGE.md 提案机制
+### 两级制度
 
-当 skill 在使用过程中暴露问题或需要改进时，不要直接修改 SKILL.md，而是先在 CHANGE.md 中记录提案。
+| 级别 | 判断标准 | 流程 |
+|------|----------|------|
+| **Patch** | 不会让使用者感到意外（措辞、typo、补充边界条件） | 直接改 + git commit |
+| **Proposal** | 会改变 skill 行为（增删步骤、改顺序、改逻辑） | CHANGE.md 提案 → 用户 review |
 
-### CHANGE.md 格式
+**一句话判断：** 如果这个改动会让正在用 skill 的人说"咦？"，那就需要 proposal。
 
-在对应 skill 目录下创建 `CHANGE.md`：
+### Proposal 格式
 
 ```markdown
-# Change Proposals
-
-## #001 - [提案标题]
+## #001 - [标题]
 - **Status:** proposed | accepted | rejected | implemented
-- **Date:** 2026-04-30
-- **Trigger:** 什么场景触发了这个修改需求
-- **Proposal:** 具体要修改什么，为什么
-- **Impact:** 修改后对现有流程的影响
-
-## #002 - [提案标题]
-...
+- **Date:** 2026-05-03
+- **Trigger:** 什么场景触发了修改需求
+- **Proposal:** 具体修改 + 原因
+- **Breaking?:** yes/no
 ```
 
-### 提案状态流转
+## Phase 4: Composition — 下游串联
+
+### Next Steps 格式（写在每个 skill 末尾）
+
+```markdown
+## Next Steps
+- **If [具体条件]**: invoke [skill-name] — [一句话原因]
+- **If [另一条件]**: invoke [another-skill] — [原因]
+```
+
+### Chains 注册表
+
+`data/chains.md` 记录 skill 间的输入输出关系：
 
 ```
-proposed → [用户 review] → accepted → implemented
-                        → rejected (附原因)
+[publisher-matcher] --{匹配结果}--> [publisher-review]
+[publisher-review] --{确认列表}--> [email-generator]
+[email-generator] --{邮件内容}--> [mail-send-batch]
 ```
 
-**规则：**
-- 编号从 #001 开始，递增不跳号
-- 每个提案必须经过用户 review 才能进入 accepted
-- implemented 后在 SKILL.md 中标注对应提案编号
-- rejected 的提案保留记录，附拒绝原因
-
-### 何时创建提案
-
-- Skill 执行中发现步骤缺失或顺序有误
-- 用户反馈某步骤多余或需要调整
-- 发现新的边界条件未覆盖
-- 下游 skill 对接时发现接口不匹配
-
-## Phase 3: Composition — 下游 Skill 串联
-
-Skill 执行完毕后，评估是否存在可串联的下游 skill。
-
-**评估维度：**
-
-| 问题 | 如果是 |
-|------|--------|
-| 当前 skill 的输出是否是另一个 skill 的输入？ | 建立串联关系 |
-| 执行完后是否有固定的后续动作？ | 考虑在 SKILL.md 末尾添加 Next Step |
-| 多个 skill 是否总是一起执行？ | 考虑创建编排 skill |
-
-**串联方式：**
-
-1. **显式推荐** — 在 SKILL.md 末尾添加：
-   ```markdown
-   ## Next Steps
-   - 如果需要 X，使用 [skill-name]
-   - 如果需要 Y，使用 [another-skill]
-   ```
-
-2. **编排 Skill** — 当多个 skill 固定组合时，创建一个新的编排 skill 定义执行顺序和数据传递。
+当一个 skill 执行完，检查 chains.md 是否有下游 → 提示用户。
 
 ## Quick Reference
 
-| 阶段 | 触发条件 | 产物 |
-|------|----------|------|
-| Identification | 多轮、多步、可重复 | 新 SKILL.md |
-| Change Management | 使用中发现问题 | CHANGE.md 提案 |
-| Composition | 执行后有后续动作 | Next Steps / 编排 skill |
+| 阶段 | 触发 | Token 开销 | 产物 |
+|------|------|-----------|------|
+| Detection | 每个 session 自动 | 0（shell）| data/candidates.md |
+| Scaffold | 用户确认候选 | 按需 | 新 skill 目录 |
+| Change | 使用中发现问题 | 0 | CHANGE.md 或直接 commit |
+| Composition | skill 执行完毕 | 按需 | Next Steps / chains.md |
 
 ## Common Mistakes
 
-- **直接改 SKILL.md 不留痕迹** — 用 CHANGE.md 追踪，保留决策历史
-- **提案堆积不 review** — 定期清理，保持提案列表可管理
-- **过度串联** — 只串联真正有数据依赖的 skill，不要为了串联而串联
-- **忽略 rejected 提案** — rejected 的提案同样有参考价值，保留原因记录
+- **把 patch 当 proposal** — 改个措辞不需要走提案，直接改
+- **候选堆积不 review** — 定期清理 candidates.md，否则失去参考价值
+- **串联写得太模糊** — Next Steps 必须包含具体条件，不能写"如果需要可以用 X"
+- **模板当作终稿** — 脚手架只是起点，生成后必须根据实际情况调整

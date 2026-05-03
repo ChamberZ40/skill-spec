@@ -1,21 +1,58 @@
 #!/bin/bash
-# Stop hook: only inject prompt when tool calls exceed threshold
-# If below threshold → outputs nothing (0 tokens added to context)
-# If above → injects a short suggestion via hookSpecificOutput
+# Stop hook: log candidate to data/candidates.md when threshold exceeded
+# Pure shell — 0 token cost. Claude only involved at review time.
 THRESHOLD=${SKILL_CANDIDATE_THRESHOLD:-15}
+SKILL_DIR="$HOME/.claude/skills/skill-spec"
+CANDIDATES_FILE="$SKILL_DIR/data/candidates.md"
 
-SESSION_ID=$(jq -r '.session_id // "default"' 2>/dev/null)
+INPUT=$(cat /dev/stdin 2>/dev/null || echo '{}')
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null)
+
 COUNTER_FILE="/tmp/claude_skill_counter_${SESSION_ID}"
+TOOLS_FILE="/tmp/claude_skill_tools_${SESSION_ID}"
 
 if [ ! -f "$COUNTER_FILE" ]; then
   exit 0
 fi
 
 count=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
-rm -f "$COUNTER_FILE"
 
 if [ "$count" -ge "$THRESHOLD" ]; then
-  cat <<EOF
-{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "[skill-lifecycle] Session used ${count} tool calls. If this was a multi-step repeatable task, suggest creating a skill to the user in 1 sentence."}}
+  # Get unique tool list
+  if [ -f "$TOOLS_FILE" ]; then
+    tools=$(sort "$TOOLS_FILE" | uniq | tr '\n' ',' | sed 's/,$//')
+    unique_count=$(sort "$TOOLS_FILE" | uniq | wc -l | tr -d ' ')
+  else
+    tools="unknown"
+    unique_count=0
+  fi
+
+  # Get current date
+  date_str=$(date +%Y-%m-%d)
+
+  # Ensure candidates file exists with header
+  if [ ! -f "$CANDIDATES_FILE" ]; then
+    echo "# Skill Candidates" > "$CANDIDATES_FILE"
+    echo "" >> "$CANDIDATES_FILE"
+  fi
+
+  # Append candidate entry
+  cat >> "$CANDIDATES_FILE" << ENTRY
+
+## ${date_str} | ${count} calls | ${unique_count} tool types
+- **Session:** ${SESSION_ID}
+- **Tools:** ${tools}
+- **Status:** pending
+ENTRY
+
+fi
+
+# Cleanup temp files
+rm -f "$COUNTER_FILE" "$TOOLS_FILE"
+
+# Only inject Claude prompt if threshold exceeded
+if [ "$count" -ge "$THRESHOLD" ]; then
+  cat << EOF
+{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "[skill-spec] Session logged to candidates (${count} calls, ${unique_count} tools). If this was repeatable work, suggest the user run /skill-spec to review."}}
 EOF
 fi

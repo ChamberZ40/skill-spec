@@ -1,10 +1,14 @@
 #!/bin/bash
-# PostToolUse hook: increment tool call counter per session
+# PostToolUse hook: increment counter + log tool name
 # Zero token cost — pure shell, no Claude involvement
-# Reads session_id from stdin JSON to isolate per-session counts
-SESSION_ID=$(jq -r '.session_id // "default"' 2>/dev/null)
-COUNTER_FILE="/tmp/claude_skill_counter_${SESSION_ID}"
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null)
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)
 
+COUNTER_FILE="/tmp/claude_skill_counter_${SESSION_ID}"
+TOOLS_FILE="/tmp/claude_skill_tools_${SESSION_ID}"
+
+# Increment counter
 if [ ! -f "$COUNTER_FILE" ]; then
   echo 1 > "$COUNTER_FILE"
 else
@@ -12,5 +16,9 @@ else
   echo $count > "$COUNTER_FILE"
 fi
 
-# Suppress output to avoid injecting anything into context
+# Log tool name
+if [ -n "$TOOL_NAME" ] && [ "$TOOL_NAME" != "null" ]; then
+  echo "$TOOL_NAME" >> "$TOOLS_FILE"
+fi
+
 echo '{"suppressOutput": true}'
