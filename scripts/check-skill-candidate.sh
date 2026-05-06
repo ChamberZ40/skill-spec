@@ -50,9 +50,9 @@ fi
 # Cleanup temp files
 rm -f "$COUNTER_FILE" "$TOOLS_FILE"
 
-# Only inject Claude prompt if threshold exceeded
+# Only inject prompt if threshold exceeded — use systemMessage (Stop hooks don't support hookSpecificOutput)
 if [ "$count" -ge "$THRESHOLD" ]; then
   cat << EOF
-{"hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": "[skill-spec] Session logged to candidates (${count} calls, ${unique_count} tools). If this was repeatable work, suggest the user run /skill-spec to review."}}
+{"systemMessage": "[skill-spec] Session logged to candidates (${count} calls, ${unique_count} tools). If this was repeatable work, consider running /skill-spec to review."}
 EOF
 fi
