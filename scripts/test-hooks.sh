@@ -53,7 +53,8 @@ echo ""
 
 # --- Stop hook (above threshold) ---
 echo "[Stop] check-skill-candidate.sh (above threshold)"
-echo 20 > /tmp/claude_skill_counter_test-validate-stop
+# Write 20 lines (new format: each line = one tool call)
+seq 20 > /tmp/claude_skill_counter_test-validate-stop
 printf "Bash\nEdit\nWrite\n" > /tmp/claude_skill_tools_test-validate-stop
 OUTPUT=$(echo '{"session_id": "test-validate-stop"}' | "$SCRIPT_DIR/check-skill-candidate.sh")
 
