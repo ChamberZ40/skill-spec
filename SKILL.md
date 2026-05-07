@@ -33,11 +33,15 @@ Auto-written to `data/candidates.md`:
 When invoked directly, read candidates.md and for each pending entry:
 1. Summarize key steps from the session
 2. Evaluate three criteria: multi-step, multi-turn, repeatable
-3. If YES → scaffold from template; if NO → mark skipped
+3. If YES → proceed to Phase 2 (Scaffold with duplicate check); if NO → mark skipped
 
 ## Phase 2: Scaffold
 
-For confirmed candidates, generate from `templates/SKILL.template.md`:
+Before creating a new skill, check for duplicates:
+
+1. Scan `~/.claude/skills/*/SKILL.md` frontmatter (name + description)
+2. If a similar skill exists → create a **proposal** in that skill's CHANGE.md instead of a new skill
+3. If no match → generate from `templates/SKILL.template.md`
 
 ```
 ~/.claude/skills/[new-skill-name]/

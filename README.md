@@ -1,215 +1,196 @@
 # skill-spec
 
-> Treat your AI skills like production specs — version them, review them, ship them.
+> Your AI doesn't forget code. Why should it forget process?
 
-## What is this?
+**skill-spec** turns the invisible patterns in your Claude Code sessions into versionable, iterable, composable specs — automatically.
 
-A methodology + toolchain for engineering Claude Code skills with rigor. Instead of writing skills once and forgetting them, `skill-spec` gives you:
+---
 
-- **Auto-detection** — Hooks that silently track tool calls + tool diversity, surfacing skill candidates at session end
-- **Scaffold** — Template-based skill creation from candidates
-- **Tiered change management** — Patch (direct edit) vs Proposal (CHANGE.md with review gates)
-- **Composition** — Chain skills into workflows via a dependency registry
+## The Insight
 
-## The Problem
+Every 20+ tool-call session you run is a process waiting to be captured. But you never stop to write it down because:
 
-You just spent 45 minutes and 20+ tool calls doing something complex with Claude. Tomorrow you'll do it again from scratch. Next week, same thing.
+- You don't notice the pattern until the 3rd time
+- Writing a skill from scratch is friction
+- Existing skills rot because there's no change management
 
-Skills solve this — but:
-1. How do you know **when** to create one?
-2. How do you **iterate** without breaking what works?
-3. How do you **connect** skills into larger workflows?
+**skill-spec** solves all three with zero ongoing effort:
+
+```
+Session ends → hook fires → candidate logged → you review when ready → skill born (or existing skill improved)
+```
+
+**Zero tokens consumed during normal work.** The entire detection layer is pure shell.
+
+---
 
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Session Running                            │
-│                                                              │
-│  PostToolUse hook (async, 0 tokens)                          │
-│  └─ Increments counter + logs tool_name to /tmp              │
-│                                                              │
-│  Stop hook                                                   │
-│  └─ If counter >= threshold:                                 │
-│       • Write candidate to data/candidates.md (pure shell)   │
-│       • Inject 1-sentence prompt (~30 tokens)                │
-│     Else:                                                    │
-│       silent exit (0 tokens)                                 │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼ candidates accumulate
-┌─────────────────────────────────────────────────────────────┐
-│  /skill-spec review                                          │
-│  └─ Claude reads candidates.md                               │
-│  └─ Evaluates: multi-step? repeatable?                       │
-│  └─ YES → scaffold from template                            │
-│  └─ NO  → mark skipped                                      │
-└─────────────────────────────────────────────────────────────┘
+                         YOUR DAILY WORKFLOW
+                               │
+          ┌────────────────────┼────────────────────┐
+          │                    │                    │
+          │   PostToolUse      │   Stop hook        │
+          │   (async, 0 tok)   │   (threshold?)     │
+          │   count + log      │                    │
+          │                    │   < 15 → silent    │
+          │                    │   >= 15 → log it   │
+          └────────────────────┼────────────────────┘
+                               │
+                               ▼
+                    data/candidates.md
+                    (accumulates silently)
+                               │
+                               ▼  when YOU decide
+               ┌───────────────────────────────┐
+               │      /skill-spec review        │
+               │                               │
+               │  For each candidate:          │
+               │  1. Is it repeatable?         │
+               │  2. Similar skill exists?     │
+               │     YES → proposal            │
+               │     NO  → scaffold new skill  │
+               └───────────────────────────────┘
 ```
 
-## Installation
+---
 
-### 1. Clone to your Claude Code skills directory
+## Quick Start
 
 ```bash
+# 1. Install
 git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
+
+# 2. Add hooks to ~/.claude/settings.json (merge, don't replace)
 ```
-
-### 2. Add hooks to `~/.claude/settings.json`
-
-Merge these into your existing settings (don't replace the whole file):
 
 ```json
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/skill-spec/scripts/count-tool-use.sh",
-            "timeout": 5,
-            "async": true
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/skill-spec/scripts/check-skill-candidate.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
+    "PostToolUse": [{
+      "matcher": "",
+      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/count-tool-use.sh", "timeout": 5, "async": true}]
+    }],
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/check-skill-candidate.sh", "timeout": 5}]
+    }]
   }
 }
 ```
-
-### 3. Verify installation
 
 ```bash
-# Test the hooks work
-echo '{"session_id": "test", "tool_name": "Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
-# Should output: {"suppressOutput": true}
+# 3. Verify
+echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
+# → {"suppressOutput": true}
+
+# 4. Done. Use Claude Code normally. Candidates accumulate silently.
 ```
 
-### 4. (Optional) Adjust threshold
-
-Default is 15 tool calls. Override via env in settings.json:
-
-```json
-{
-  "env": {
-    "SKILL_CANDIDATE_THRESHOLD": "20"
-  }
-}
-```
-
-## Token Cost
-
-| Session complexity | Extra tokens consumed |
-|---|---|
-| Simple (< 15 tool calls) | **0** |
-| Complex (>= 15 tool calls) | **~30** (one sentence injected at session end) |
-
-The PostToolUse hook is `async: true` and outputs `{"suppressOutput": true}` — it never touches your context window.
+---
 
 ## The Four Phases
 
-### Phase 1: Detection
+### 1. Detection (automatic, 0 tokens)
 
-Hooks track two signals per session (zero token cost):
-- **Total tool calls** — raw complexity indicator
-- **Unique tool types** — diversity indicator (Bash+Edit+Write+Agent = more complex than 20x Read)
+Two shell hooks run on every session:
+- **PostToolUse** — counts calls + logs which tools you used
+- **Stop** — if count >= threshold, writes a candidate entry
 
-When threshold exceeded, a candidate is logged to `data/candidates.md`:
-```markdown
-## 2026-05-03 | 23 calls | 6 tool types
-- **Session:** abc123
-- **Tools:** Bash,Edit,Write,Agent,WebFetch,Read
-- **Status:** pending
+You never see this. It just runs.
+
+### 2. Scaffold (on-demand, with dedup)
+
+When you review candidates:
+1. Scans existing skills for duplicates
+2. **Match found** → creates a proposal on the existing skill's CHANGE.md
+3. **No match** → scaffolds a new skill from template
+
+No duplicate skills. Ever.
+
+### 3. Change Management (tiered)
+
+| | Patch | Proposal |
+|---|---|---|
+| **What** | Typo, wording, edge case | New step, reorder, behavior change |
+| **Process** | Edit + commit | CHANGE.md → user review → implement |
+| **Test** | Would a user notice? No → patch | Would a user say "wait what?" → proposal |
+
+### 4. Composition
+
+Skills declare their downstream connections:
+```
+[skill-A] --{output}--> [skill-B] --{output}--> [skill-C]
 ```
 
-### Phase 2: Scaffold
+After a skill completes, Claude checks for downstream suggestions.
 
-When you review candidates and confirm one is worth keeping:
-- Claude uses `templates/SKILL.template.md` to generate a new skill directory
-- Pre-fills steps based on what was observed in the session
+---
 
-### Phase 3: Change Management (Tiered)
+## Token Cost
 
-| Level | When | Process |
-|-------|------|---------|
-| **Patch** | Won't surprise users (typo, wording, edge case) | Direct edit + git commit |
-| **Proposal** | Changes behavior (add/remove steps, reorder) | CHANGE.md entry → user review |
+| Scenario | Cost |
+|----------|------|
+| Normal session (< 15 calls) | **0** |
+| Complex session (>= threshold) | **~30 tokens** at session end |
+| Skill loaded into context | **~700 tokens** (only when triggered) |
+| Description in skill list | **~40 tokens** (same as any skill) |
 
-**Rule of thumb:** If someone using this skill would say "huh?" — it needs a proposal.
+The detection layer is invisible. You pay nothing until you actively review.
 
-### Phase 4: Composition
-
-Register skill dependencies in `data/chains.md`:
-
-```
-[publisher-matcher] --{matched list}--> [publisher-review]
-[publisher-review] --{confirmed list}--> [email-generator]
-[email-generator] --{email content}--> [mail-send-batch]
-```
-
-Each skill's `## Next Steps` section tells Claude what to suggest after execution.
+---
 
 ## File Structure
 
 ```
-~/.claude/skills/skill-spec/
-├── SKILL.md                        # Methodology (loaded into Claude context)
+skill-spec/
+├── SKILL.md              # Methodology spec (what Claude reads)
+├── CHANGE.md             # This skill's own change proposals
+├── README.md             # You're here
 ├── scripts/
-│   ├── count-tool-use.sh           # PostToolUse — async counter + tool log
-│   └── check-skill-candidate.sh    # Stop — threshold check + candidate writer
+│   ├── count-tool-use.sh         # PostToolUse hook
+│   ├── check-skill-candidate.sh  # Stop hook
+│   └── test-hooks.sh             # Schema validation
 ├── data/
-│   ├── candidates.md               # Auto-populated candidate log
-│   └── chains.md                   # Skill dependency registry
+│   ├── candidates.md    # Auto-populated log
+│   └── chains.md        # Skill dependency registry
 └── templates/
-    └── SKILL.template.md           # Scaffold for new skills
+    └── SKILL.template.md  # New skill scaffold
 ```
 
-## Usage
+---
 
-### Passive mode (default)
-Just use Claude Code normally. Hooks run silently. Candidates accumulate.
+## Configuration
 
-### Review mode
-```
-You: /skill-spec
-Claude: [reads candidates.md, evaluates each pending entry]
-```
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `SKILL_CANDIDATE_THRESHOLD` | `15` | Min tool calls to trigger candidate logging |
 
-### Register a chain
-```
-You: Register the email pipeline chain in skill-spec
-Claude: [updates data/chains.md with the dependency graph]
-```
+Set in `~/.claude/settings.json` under `"env"`.
+
+---
 
 ## Prerequisites
 
 - Claude Code CLI
-- `jq` installed (for JSON parsing in hooks)
+- `jq` (JSON parsing in hooks)
 - Bash-compatible shell
+
+---
 
 ## Philosophy
 
-Skills are specs. Specs need:
-- **Observability** — Hooks that surface when a new spec is needed
-- **Scaffolding** — Templates that reduce friction to create
-- **Tiered governance** — Light touch for small changes, review gates for big ones
-- **Composability** — Skills that chain into workflows
+> Skills are specs. Specs need engineering.
 
-Write once, iterate forever.
+- **Observe** — detect when a new spec is needed
+- **Deduplicate** — enhance existing specs instead of creating clones
+- **Govern** — light touch for patches, review gates for behavior changes
+- **Compose** — specs that chain into pipelines
+
+The goal is not more skills. It's better skills, continuously improved.
+
+---
 
 ## License
 
