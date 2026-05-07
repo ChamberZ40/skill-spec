@@ -1,5 +1,6 @@
 ---
 name: skill-spec
+version: 1.0.0
 description: Use when identifying skill candidates from repeated work, managing skill change proposals, reviewing candidates, or chaining skills into workflows. Also invoke directly to scaffold a new skill or review accumulated candidates.
 ---
 
@@ -108,3 +109,13 @@ After a skill completes, check chains.md for downstream → suggest to user.
 - **Letting candidates pile up** — review periodically or they lose value
 - **Vague chaining** — Next Steps must include specific conditions, not "you might want to use X"
 - **Treating scaffold as final** — template output is a starting point, always customize
+
+## Setup (first use after install)
+
+If auto-detection hooks are not yet configured, run the setup script to enable passive candidate tracking:
+
+```bash
+bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
+```
+
+This adds PostToolUse and Stop hooks to `~/.claude/settings.json`. Without hooks, only the review/scaffold/change-management features work (no auto-detection).

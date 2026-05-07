@@ -11,40 +11,30 @@
 ## Quick Start
 
 ```bash
+# Install the skill
+npx skills add ChamberZ40/skill-spec
+
+# Enable auto-detection hooks (required for passive candidate tracking)
+bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
+```
+
+Done. Use Claude Code normally — candidates accumulate silently.
+
+<details>
+<summary>Alternative: one-line installer (clone + hooks in one shot)</summary>
+
+```bash
 curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
 ```
 
-That's it. The installer handles cloning, hook configuration, and verification automatically.
+</details>
 
 <details>
 <summary>Manual installation</summary>
 
 ```bash
-# 1. Clone
 git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
-
-# 2. Add hooks to ~/.claude/settings.json (merge, don't replace)
-```
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "",
-      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/count-tool-use.sh", "timeout": 5, "async": true}]
-    }],
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/check-skill-candidate.sh", "timeout": 5}]
-    }]
-  }
-}
-```
-
-```bash
-# 3. Verify
-echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
-# → {"suppressOutput": true}
+bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
 ```
 
 </details>

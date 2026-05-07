@@ -11,40 +11,30 @@
 ## 快速开始
 
 ```bash
+# 安装 skill
+npx skills add ChamberZ40/skill-spec
+
+# 启用自动检测 hooks（被动候选追踪必需）
+bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
+```
+
+搞定。正常使用 Claude Code，候选会静默积累。
+
+<details>
+<summary>替代方式：一键安装脚本（clone + hooks 一步到位）</summary>
+
+```bash
 curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
 ```
 
-一行搞定。安装脚本自动处理 clone、hook 配置和验证。
+</details>
 
 <details>
 <summary>手动安装</summary>
 
 ```bash
-# 1. 安装
 git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
-
-# 2. 在 ~/.claude/settings.json 中添加 hooks（合并，不要覆盖整个文件）
-```
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "",
-      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/count-tool-use.sh", "timeout": 5, "async": true}]
-    }],
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{"type": "command", "command": "~/.claude/skills/skill-spec/scripts/check-skill-candidate.sh", "timeout": 5}]
-    }]
-  }
-}
-```
-
-```bash
-# 3. 验证安装
-echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
-# → {"suppressOutput": true}
+bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
 ```
 
 </details>
