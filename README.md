@@ -2,57 +2,9 @@
 
 > Your AI doesn't forget code. Why should it forget process?
 
+[中文文档](./README_CN.md)
+
 **skill-spec** turns the invisible patterns in your Claude Code sessions into versionable, iterable, composable specs — automatically.
-
----
-
-## The Insight
-
-Every 20+ tool-call session you run is a process waiting to be captured. But you never stop to write it down because:
-
-- You don't notice the pattern until the 3rd time
-- Writing a skill from scratch is friction
-- Existing skills rot because there's no change management
-
-**skill-spec** solves all three with zero ongoing effort:
-
-```
-Session ends → hook fires → candidate logged → you review when ready → skill born (or existing skill improved)
-```
-
-**Zero tokens consumed during normal work.** The entire detection layer is pure shell.
-
----
-
-## How It Works
-
-```
-                         YOUR DAILY WORKFLOW
-                               │
-          ┌────────────────────┼────────────────────┐
-          │                    │                    │
-          │   PostToolUse      │   Stop hook        │
-          │   (async, 0 tok)   │   (threshold?)     │
-          │   count + log      │                    │
-          │                    │   < 15 → silent    │
-          │                    │   >= 15 → log it   │
-          └────────────────────┼────────────────────┘
-                               │
-                               ▼
-                    data/candidates.md
-                    (accumulates silently)
-                               │
-                               ▼  when YOU decide
-               ┌───────────────────────────────┐
-               │      /skill-spec review        │
-               │                               │
-               │  For each candidate:          │
-               │  1. Is it repeatable?         │
-               │  2. Similar skill exists?     │
-               │     YES → proposal            │
-               │     NO  → scaffold new skill  │
-               └───────────────────────────────┘
-```
 
 ---
 
@@ -86,6 +38,56 @@ echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/sc
 # → {"suppressOutput": true}
 
 # 4. Done. Use Claude Code normally. Candidates accumulate silently.
+```
+
+---
+
+## The Insight
+
+Every 20+ tool-call session you run is a process waiting to be captured. But you never stop to write it down because:
+
+- You don't notice the pattern until the 3rd time
+- Writing a skill from scratch is friction
+- Existing skills rot because there's no change management
+
+**skill-spec** solves all three with zero ongoing effort:
+
+```
+Session ends → hook fires → candidate logged → you review when ready → skill born (or existing skill improved)
+```
+
+**Zero tokens consumed during normal work.** The entire detection layer is pure shell.
+
+---
+
+## How It Works
+
+```
+                        YOUR DAILY WORKFLOW
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+         │   PostToolUse      │   Stop hook        │
+         │   (async, 0 tok)   │   (threshold?)     │
+         │   count + log      │                    │
+         │                    │   < 15 → silent    │
+         │                    │   >= 15 → log it   │
+         └────────────────────┼────────────────────┘
+                              │
+                              ▼
+                   data/candidates.md
+                   (accumulates silently)
+                              │
+                              ▼  when YOU decide
+              ┌───────────────────────────────────┐
+              │       /skill-spec review           │
+              │                                   │
+              │  For each candidate:              │
+              │  1. Is it repeatable?             │
+              │  2. Similar skill exists?         │
+              │     YES → proposal                │
+              │     NO  → scaffold new skill      │
+              └───────────────────────────────────┘
 ```
 
 ---
