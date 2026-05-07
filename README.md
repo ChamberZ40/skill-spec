@@ -80,7 +80,7 @@ Session ends → hook fires → candidate logged → you review when ready → s
                               │
                               ▼  when YOU decide
               ┌───────────────────────────────────┐
-              │       /skill-spec review           │
+              │       /skill-spec review          │
               │                                   │
               │  For each candidate:              │
               │  1. Is it repeatable?             │
