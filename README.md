@@ -11,7 +11,16 @@
 ## Quick Start
 
 ```bash
-# 1. Install
+curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
+```
+
+That's it. The installer handles cloning, hook configuration, and verification automatically.
+
+<details>
+<summary>Manual installation</summary>
+
+```bash
+# 1. Clone
 git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
 
 # 2. Add hooks to ~/.claude/settings.json (merge, don't replace)
@@ -36,9 +45,9 @@ git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-sp
 # 3. Verify
 echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
 # → {"suppressOutput": true}
-
-# 4. Done. Use Claude Code normally. Candidates accumulate silently.
 ```
+
+</details>
 
 ---
 

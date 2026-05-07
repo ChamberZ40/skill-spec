@@ -11,6 +11,15 @@
 ## 快速开始
 
 ```bash
+curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
+```
+
+一行搞定。安装脚本自动处理 clone、hook 配置和验证。
+
+<details>
+<summary>手动安装</summary>
+
+```bash
 # 1. 安装
 git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
 
@@ -36,9 +45,9 @@ git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-sp
 # 3. 验证安装
 echo '{"session_id":"test","tool_name":"Bash"}' | ~/.claude/skills/skill-spec/scripts/count-tool-use.sh
 # → {"suppressOutput": true}
-
-# 4. 完成。正常使用 Claude Code，候选会静默积累。
 ```
+
+</details>
 
 ---
 
