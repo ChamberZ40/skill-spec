@@ -12,10 +12,25 @@ Skills are living specs that need continuous iteration. This methodology covers 
 
 ## Phase 1: Detection
 
-### Hook-driven (0 tokens)
+### Proactive detection (all agents)
 
-- **PostToolUse** (async) — increments counter + logs tool names, pure shell
-- **Stop** — writes to `data/candidates.md` when threshold exceeded, injects one prompt (~30 tokens)
+When this skill is loaded, monitor the current session. If you observe ALL of:
+- 3+ distinct steps or actions taken
+- Multiple tools or capabilities used
+- The work pattern looks repeatable (not a one-off)
+
+Then at a natural pause point, briefly suggest to the user: "This looks like it could become a reusable skill. Want me to scaffold one?"
+
+Do NOT suggest if:
+- The session is simple Q&A or research
+- The user is already working within an existing skill
+- You already suggested this session
+
+### Hook-driven enhancement (Claude Code only, 0 tokens)
+
+For Claude Code users who run `scripts/setup-hooks.sh`, hooks provide precise background tracking:
+- **PostToolUse** (async) — appends to counter + logs tool names, pure shell
+- **Stop** — writes to `data/candidates.md` when threshold exceeded
 
 Default threshold: 15. Override: `SKILL_CANDIDATE_THRESHOLD=20`
 

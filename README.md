@@ -11,30 +11,27 @@
 ## Quick Start
 
 ```bash
-# Install the skill
 npx skills add ChamberZ40/skill-spec
+```
 
-# Enable auto-detection hooks (required for passive candidate tracking)
+That's it. Works on all supported agents — Claude Code, Cursor, Codex, Gemini CLI, and more.
+
+<details>
+<summary>Claude Code users: enable precision tracking (optional)</summary>
+
+```bash
 bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
 ```
 
-Done. Use Claude Code normally — candidates accumulate silently.
-
-<details>
-<summary>Alternative: one-line installer (clone + hooks in one shot)</summary>
-
-```bash
-curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
-```
+Adds background hooks for zero-token, precise candidate detection. Without this, the skill uses in-context detection (works everywhere, costs ~50 tokens).
 
 </details>
 
 <details>
-<summary>Manual installation</summary>
+<summary>Alternative: curl installer (clone + hooks in one shot)</summary>
 
 ```bash
-git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
-bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
+curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
 ```
 
 </details>

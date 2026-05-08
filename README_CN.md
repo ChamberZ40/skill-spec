@@ -11,30 +11,27 @@
 ## 快速开始
 
 ```bash
-# 安装 skill
 npx skills add ChamberZ40/skill-spec
+```
 
-# 启用自动检测 hooks（被动候选追踪必需）
+搞定。支持所有主流 agent — Claude Code、Cursor、Codex、Gemini CLI 等。
+
+<details>
+<summary>Claude Code 用户：启用精确追踪（可选）</summary>
+
+```bash
 bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
 ```
 
-搞定。正常使用 Claude Code，候选会静默积累。
-
-<details>
-<summary>替代方式：一键安装脚本（clone + hooks 一步到位）</summary>
-
-```bash
-curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
-```
+添加后台 hooks 实现零 token 精确候选检测。不配置也能用，只是走上下文检测（通用方式，约 50 token）。
 
 </details>
 
 <details>
-<summary>手动安装</summary>
+<summary>替代方式：一键安装脚本</summary>
 
 ```bash
-git clone https://github.com/ChamberZ40/skill-spec.git ~/.claude/skills/skill-spec
-bash ~/.claude/skills/skill-spec/scripts/setup-hooks.sh
+curl -sSL https://raw.githubusercontent.com/ChamberZ40/skill-spec/main/install.sh | bash
 ```
 
 </details>
