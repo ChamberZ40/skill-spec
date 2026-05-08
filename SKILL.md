@@ -26,6 +26,22 @@ Do NOT suggest if:
 - The user is already working within an existing skill
 - You already suggested this session
 
+### Manual trigger
+
+When user invokes `/skill-spec` or asks to summarize the session as a skill candidate:
+1. Review what was accomplished in this session
+2. Identify the repeatable pattern (steps, tools, decision points)
+3. Proceed to Phase 2 (Scaffold with duplicate check)
+
+### Iteration detection
+
+When a user is executing an existing skill and you notice:
+- A step is missing or out of order
+- An edge case is not handled
+- The skill's instructions don't match what's actually needed
+
+Proactively suggest: "This seems like a gap in [skill-name]. Want me to create a change proposal?" Then proceed to Phase 3 (Change Management).
+
 ### Hook-driven enhancement (Claude Code only, 0 tokens)
 
 For Claude Code users who run `scripts/setup-hooks.sh`, hooks provide precise background tracking:
